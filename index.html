@@ -21,6 +21,7 @@ body{
     background-size:400% 400%;
     animation:bgMove 10s ease infinite;
 }
+
 @keyframes bgMove{
     0%{background-position:0%}
     50%{background-position:100%}
@@ -42,25 +43,30 @@ nav{
     background:rgba(0,0,0,0.6);
     backdrop-filter:blur(12px);
     border:1px solid rgba(255,255,255,.08);
-    transition:all .4s ease;
     z-index:1000;
+
+    transition:all .4s ease, transform .4s ease, opacity .4s ease;
 }
+
+/* لما تسكرول */
 nav.scrolled{
     top:10px;
     background:rgba(0,0,0,0.9);
     box-shadow:0 10px 30px rgba(0,0,0,.6);
 }
 
-nav.hidden{
+/* اختفاء عند scroll down */
+nav.hide-on-scroll{
+    transform:translateX(-50%) translateY(-120px);
     opacity:0;
     pointer-events:none;
-    transform:translateX(-50%) translateY(-20px);
 }
 
 nav h2{
     font-family:'Great Vibes';
     font-size:42px;
 }
+
 nav a{
     color:white;
     margin-left:25px;
@@ -68,6 +74,7 @@ nav a{
     opacity:.8;
     transition:.3s;
 }
+
 nav a:hover{opacity:1;}
 
 /* HERO */
@@ -107,10 +114,12 @@ nav a:hover{opacity:1;}
     overflow:hidden;
     animation:pulse 2s infinite;
 }
+
 .explore-btn:hover{
     transform:scale(1.1);
     box-shadow:0 0 25px rgba(106,0,255,0.6);
 }
+
 .explore-btn::after{
     content:'';
     position:absolute;
@@ -121,12 +130,15 @@ nav a:hover{opacity:1;}
     background:rgba(255,255,255,0.2);
     transform:skewX(-20deg);
 }
+
 .explore-btn:hover::after{
     animation:shine .8s forwards;
 }
+
 @keyframes shine{
     100%{left:120%;}
 }
+
 @keyframes pulse{
     0%,100%{transform:scale(1)}
     50%{transform:scale(1.05)}
@@ -183,6 +195,7 @@ section{padding:120px 60px;}
     font-weight:bold;
     animation:floatPrice 2s infinite ease-in-out;
 }
+
 @keyframes floatPrice{
     0%,100%{transform:translateY(0)}
     50%{transform:translateY(-5px)}
@@ -205,10 +218,12 @@ section{padding:120px 60px;}
     position:relative;
     overflow:hidden;
 }
+
 .delivery-card:hover{
     transform:translateY(-10px) scale(1.02);
     background:rgba(255,255,255,0.08);
 }
+
 .delivery-card::before{
     content:'📦';
     position:absolute;
@@ -232,6 +247,7 @@ section{padding:120px 60px;}
     justify-content:center;
     align-items:center;
 }
+
 .modal.active{display:flex;}
 
 .modal img{
@@ -249,11 +265,8 @@ section{padding:120px 60px;}
     font-size:30px;
 }
 
-/* ===================== */
-/* ✅ MOBILE RESPONSIVE */
-/* ===================== */
-
-@media (max-width: 768px){
+/* MOBILE */
+@media (max-width:768px){
 
     nav{
         width:95%;
@@ -296,9 +309,8 @@ section{padding:120px 60px;}
         height:200px;
     }
 
-    .price-tag{
-        font-size:11px;
-        padding:5px 10px;
+    .delivery-container{
+        flex-direction:column;
     }
 
     .delivery-card{
@@ -312,7 +324,7 @@ section{padding:120px 60px;}
     }
 }
 
-@media (max-width: 500px){
+@media (max-width:500px){
     nav{
         flex-direction:column;
         gap:10px;
@@ -345,26 +357,26 @@ section{padding:120px 60px;}
 <section id="gallery">
     <h2 class="section-title">Designs</h2>
 
-   <div class="grid">
-    <div class="card" onclick="openModal(this)">
-        <img src="/studio/images/desing4.jpeg">
-        <div class="price-tag">From EGP25</div>
-    </div>
+    <div class="grid">
+        <div class="card" onclick="openModal(this)">
+            <img src="/studio/images/desing4.jpeg">
+            <div class="price-tag">From EGP25</div>
+        </div>
 
-    <div class="card" onclick="openModal(this)">
-        <img src="/studio/images/desing3.jpeg">
-        <div class="price-tag">From EGP30</div>
-    </div>
+        <div class="card" onclick="openModal(this)">
+            <img src="/studio/images/desing3.jpeg">
+            <div class="price-tag">From EGP30</div>
+        </div>
 
-    <div class="card" onclick="openModal(this)">
-        <img src="/studio/images/desing2.jpg">
-        <div class="price-tag">From EGP40</div>
-    </div>
+        <div class="card" onclick="openModal(this)">
+            <img src="/studio/images/desing2.jpg">
+            <div class="price-tag">From EGP40</div>
+        </div>
 
-    <div class="card" onclick="openModal(this)">
-        <img src="/studio/images/desing1.jpg">
-        <div class="price-tag">From EGP35</div>
-    </div>
+        <div class="card" onclick="openModal(this)">
+            <img src="/studio/images/desing1.jpg">
+            <div class="price-tag">From EGP35</div>
+        </div>
     </div>
 </section>
 
@@ -388,20 +400,32 @@ function scrollToGallery(){
     document.getElementById("gallery").scrollIntoView({behavior:"smooth"});
 }
 
-window.addEventListener("scroll",()=>{
-    const nav=document.getElementById("nav");
-    nav.classList.toggle("scrolled",window.scrollY>50);
+let lastScrollY = window.scrollY;
+const nav = document.getElementById("nav");
+
+window.addEventListener("scroll", () => {
+    const currentScroll = window.scrollY;
+
+    nav.classList.toggle("scrolled", currentScroll > 50);
+
+    if (currentScroll > lastScrollY && currentScroll > 100) {
+        nav.classList.add("hide-on-scroll");
+    } else {
+        nav.classList.remove("hide-on-scroll");
+    }
+
+    lastScrollY = currentScroll;
 });
 
 function openModal(card){
-    document.getElementById("modalImg").src=card.querySelector("img").src;
+    document.getElementById("modalImg").src = card.querySelector("img").src;
     document.getElementById("modal").classList.add("active");
-    document.getElementById("nav").classList.add("hidden");
+    nav.classList.add("hide-on-scroll");
 }
 
 function closeModal(){
     document.getElementById("modal").classList.remove("active");
-    document.getElementById("nav").classList.remove("hidden");
+    nav.classList.remove("hide-on-scroll");
 }
 </script>
 
