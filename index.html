@@ -1879,6 +1879,126 @@ document.addEventListener('keydown', (e) => {
         closeOrderDetail();
         closeSuccess();
     }
+    // ===================== GOOGLE SHEETS CONFIG =====================
+const SHEETS_API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // غيرها
+
+// ===================== CHECKOUT (Google Sheets Version) =====================
+async function placeOrder() {
+    const name = document.getElementById('coName').value.trim();
+    const phone = document.getElementById('coPhone').value.trim();
+    const gov = document.getElementById('coGov').value.trim();
+    const address = document.getElementById('coAddress').value.trim();
+    const notes = document.getElementById('coNotes').value.trim();
+
+    if(!name || !phone || !gov || !address){
+        showToast('Please fill in all required fields');
+        return;
+    }
+
+    const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const govKey = gov.toLowerCase();
+    const deliveryFee = deliveryFees[govKey] || deliveryFees.default;
+    const total = itemsTotal + deliveryFee;
+
+    const orderData = {
+        customer: { name, phone, governorate: gov, address, notes },
+        items: cart.map(item => ({
+            title: item.title,
+            qty: item.qty,
+            price: item.price
+        })),
+        itemsTotal: itemsTotal,
+        deliveryFee: deliveryFee,
+        total: total
+    };
+
+    // Loading
+    const btn = document.querySelector('.place-order-btn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(SHEETS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData),
+            // Important for Google Apps Script
+            redirect: 'follow'
+        });
+
+        const result = await response.json();
+        console.log('Sheets response:', result);
+
+        if(result.success) {
+            // Save locally too
+            const localOrder = {
+                id: result.orderId,
+                date: new Date().toISOString(),
+                status: 'pending',
+                customer: orderData.customer,
+                items: cart.map(item => ({...item})),
+                itemsTotal, deliveryFee, total
+            };
+
+            orders.unshift(localOrder);
+            localStorage.setItem('studio_orders', JSON.stringify(orders));
+
+            // Clear
+            cart = [];
+            saveCart();
+            updateCartUI();
+            closeCheckout();
+            
+            ['coName','coPhone','coGov','coAddress','coNotes'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+
+            document.getElementById('successModal').classList.add('active');
+            renderOrders();
+            showToast('Order placed! #' + result.orderId);
+            
+        } else {
+            throw new Error(result.message);
+        }
+
+    } catch(error) {
+        console.error('Error:', error);
+        showToast('Saved locally - check sheet later');
+        saveOrderLocally(orderData, itemsTotal, deliveryFee, total);
+        
+    } finally {
+        btn.textContent = 'Place Order';
+        btn.disabled = false;
+    }
+}
+
+// Fallback
+function saveOrderLocally(customer, itemsTotal, deliveryFee, total) {
+    const order = {
+        id: 'ORD-' + Date.now().toString(36).toUpperCase(),
+        date: new Date().toISOString(),
+        status: 'pending',
+        customer: customer,
+        items: cart.map(item => ({...item})),
+        itemsTotal, deliveryFee, total,
+        syncStatus: 'pending'
+    };
+    
+    orders.unshift(order);
+    localStorage.setItem('studio_orders', JSON.stringify(orders));
+    
+    cart = [];
+    saveCart();
+    updateCartUI();
+    closeCheckout();
+    
+    ['coName','coPhone','coGov','coAddress','coNotes'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    
+    document.getElementById('successModal').classList.add('active');
+    renderOrders();
+}
 });
 </script>
 
