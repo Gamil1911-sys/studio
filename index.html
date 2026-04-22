@@ -882,29 +882,6 @@ section{padding:120px 60px;}
     opacity:.9;
 }
 
-.orders-filters{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}
-
-.filter-btn{
-    padding:8px 18px;
-    border-radius:50px;
-    border:1px solid rgba(255,255,255,.15);
-    background:rgba(255,255,255,.05);
-    color:white;
-    font-size:13px;
-    cursor:pointer;
-    transition:.3s;
-}
-
-.filter-btn:hover,
-.filter-btn.active{
-    background:linear-gradient(135deg,#6a00ff,#ff00d4);
-    border-color:transparent;
-}
-
 .orders-list{
     display:flex;
     flex-direction:column;
@@ -969,38 +946,6 @@ section{padding:120px 60px;}
 .order-header .order-date{
     font-size:12px;
     opacity:.5;
-}
-
-.status-badge{
-    padding:6px 14px;
-    border-radius:50px;
-    font-size:12px;
-    font-weight:600;
-}
-
-.status-pending{
-    background:rgba(255,170,0,.15);
-    color:#ffb300;
-}
-
-.status-processing{
-    background:rgba(106,0,255,.15);
-    color:#a855f7;
-}
-
-.status-shipped{
-    background:rgba(0,150,255,.15);
-    color:#4fc3f7;
-}
-
-.status-delivered{
-    background:rgba(0,200,80,.15);
-    color:#69f0ae;
-}
-
-.status-cancelled{
-    background:rgba(255,60,60,.15);
-    color:#ff5252;
 }
 
 .order-body{
@@ -1295,6 +1240,7 @@ section{padding:120px 60px;}
     .card img{height:170px;}
 }
 </style>
+<base target="_blank">
 </head>
 
 <body>
@@ -1345,12 +1291,6 @@ section{padding:120px 60px;}
 <section id="orders">
     <div class="orders-header">
         <h2>My Orders</h2>
-        <div class="orders-filters">
-            <button class="filter-btn active" onclick="filterOrders('all',this)">All</button>
-            <button class="filter-btn" onclick="filterOrders('pending',this)">Pending</button>
-            <button class="filter-btn" onclick="filterOrders('processing',this)">Processing</button>
-            <button class="filter-btn" onclick="filterOrders('delivered',this)">Delivered</button>
-        </div>
     </div>
     <div class="orders-list" id="ordersList"></div>
 </section>
@@ -1451,7 +1391,6 @@ section{padding:120px 60px;}
 <!-- ===== ORDER DETAIL MODAL ===== -->
 <div class="order-detail-modal" id="orderDetailModal">
     <div class="order-detail-box" id="orderDetailBox">
-        <!-- filled by JS -->
     </div>
 </div>
 
@@ -1479,11 +1418,14 @@ const designs = [
 
 const deliveryFees = {cairo:50, giza:60, alex:80, default:80};
 
+// ===================== GOOGLE SHEETS CONFIG =====================
+// غير الـ URL ده بالـ URL بتاع الـ Google Apps Script Web App بتاعك
+const SHEETS_ACTION_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+
 let cart = JSON.parse(localStorage.getItem('studio_cart')) || [];
 let orders = JSON.parse(localStorage.getItem('studio_orders')) || [];
 let currentProduct = null;
 let currentQty = 1;
-let currentFilter = 'all';
 
 /* ===================== INIT ===================== */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1648,10 +1590,8 @@ function closeCheckout(){
     document.getElementById('checkoutModal').classList.remove('active');
     document.getElementById('nav').classList.remove('hide-on-scroll');
 }
-// ===================== GOOGLE SHEETS CONFIG =====================
-const SHEETS_ACTION_URL = 'https://script.google.com/macros/s/AKfycbyALn-0VTh8RXLLxv4sdvDXbBBeJ4ByrRs2uxBR7KH6eM_88sx9ZooaW6e-W_oEnBGB/exec'; // غيرها
 
-// ===================== CHECKOUT (Form Submit Version) =====================
+/* ===================== PLACE ORDER (Google Sheets) ===================== */
 function placeOrder() {
     const name = document.getElementById('coName').value.trim();
     const phone = document.getElementById('coPhone').value.trim();
@@ -1669,11 +1609,9 @@ function placeOrder() {
     const deliveryFee = deliveryFees[govKey] || deliveryFees.default;
     const total = itemsTotal + deliveryFee;
 
-    // Generate ID
     const orderId = 'STU-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + 
                     Math.floor(1000 + Math.random() * 9000);
 
-    // Format items
     const itemsText = cart.map(item => 
         `${item.title} (x${item.qty}) @ EGP${item.price}`
     ).join(' | ');
@@ -1682,10 +1620,9 @@ function placeOrder() {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = SHEETS_ACTION_URL;
-    form.target = '_blank'; // Opens in new tab
+    form.target = 'hidden_iframe';
     form.style.display = 'none';
 
-    // Helper to add fields
     function addField(name, value) {
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -1694,7 +1631,6 @@ function placeOrder() {
         form.appendChild(input);
     }
 
-    // Add all fields
     addField('id', orderId);
     addField('date', new Date().toLocaleString('en-GB'));
     addField('customer', name);
@@ -1706,15 +1642,23 @@ function placeOrder() {
     addField('items_total', itemsTotal);
     addField('delivery', deliveryFee);
     addField('total', total);
-    addField('status', 'Pending');
+
+    // Create hidden iframe
+    let iframe = document.getElementById('hidden_iframe');
+    if(!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.name = 'hidden_iframe';
+        iframe.id = 'hidden_iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+    }
 
     document.body.appendChild(form);
-    
-    // Save locally before submit
+
+    // Save locally
     const localOrder = {
         id: orderId,
         date: new Date().toISOString(),
-        status: 'pending',
         customer: {name, phone, governorate: gov, address, notes},
         items: cart.map(item => ({...item})),
         itemsTotal, deliveryFee, total
@@ -1727,31 +1671,26 @@ function placeOrder() {
     saveCart();
     updateCartUI();
     closeCheckout();
-    
-    // Clear form
+
     ['coName','coPhone','coGov','coAddress','coNotes'].forEach(id => {
         document.getElementById(id).value = '';
     });
 
-    // Submit to Google
+    // Submit to Google Sheets (in background via iframe)
     form.submit();
     document.body.removeChild(form);
 
-    // Show success locally too
+    // Show success
     document.getElementById('successModal').classList.add('active');
     renderOrders();
     showToast('Order placed! #' + orderId);
 }
+
 /* ===================== ORDERS ===================== */
 function renderOrders(){
     const container = document.getElementById('ordersList');
 
-    let filtered = orders;
-    if(currentFilter !== 'all'){
-        filtered = orders.filter(o => o.status === currentFilter);
-    }
-
-    if(filtered.length === 0){
+    if(orders.length === 0){
         container.innerHTML = `
             <div class="empty-orders">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1765,11 +1704,9 @@ function renderOrders(){
         return;
     }
 
-    container.innerHTML = filtered.map(order => {
+    container.innerHTML = orders.map(order => {
         const date = new Date(order.date);
         const dateStr = date.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
-        const statusClass = `status-${order.status}`;
-        const statusLabel = order.status.charAt(0).toUpperCase() + order.status.slice(1);
 
         return `
             <div class="order-card">
@@ -1778,7 +1715,6 @@ function renderOrders(){
                         <div class="order-id">Order <strong>#${order.id}</strong></div>
                         <div class="order-date">${dateStr}</div>
                     </div>
-                    <span class="status-badge ${statusClass}">${statusLabel}</span>
                 </div>
                 <div class="order-body">
                     <div class="order-items-preview">
@@ -1802,21 +1738,12 @@ function renderOrders(){
     }).join('');
 }
 
-function filterOrders(status, btn){
-    currentFilter = status;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderOrders();
-}
-
 function viewOrderDetail(orderId){
     const order = orders.find(o => o.id === orderId);
     if(!order) return;
 
     const date = new Date(order.date);
     const dateStr = date.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
-    const statusClass = `status-${order.status}`;
-    const statusLabel = order.status.charAt(0).toUpperCase() + order.status.slice(1);
 
     document.getElementById('orderDetailBox').innerHTML = `
         <button class="close-detail" onclick="closeOrderDetail()">✖</button>
@@ -1825,10 +1752,6 @@ function viewOrderDetail(orderId){
             <div class="meta-item">
                 <label>Date</label>
                 <span>${dateStr}</span>
-            </div>
-            <div class="meta-item">
-                <label>Status</label>
-                <span class="status-badge ${statusClass}" style="display:inline-block;margin-top:4px;">${statusLabel}</span>
             </div>
             <div class="meta-item">
                 <label>Customer</label>
@@ -1882,6 +1805,11 @@ function closeOrderDetail(){
     document.getElementById('orderDetailModal').classList.remove('active');
 }
 
+function closeSuccess(){
+    document.getElementById('successModal').classList.remove('active');
+    document.getElementById('orders').scrollIntoView({behavior:'smooth'});
+}
+
 /* ===================== TOAST ===================== */
 function showToast(msg){
     const toast = document.getElementById('toast');
@@ -1920,109 +1848,6 @@ document.addEventListener('keydown', (e) => {
         closeOrderDetail();
         closeSuccess();
     }
-    // ===================== SHEETDB CONFIG =====================
-const SHEETDB_URL = 'https://sheetdb.io/api/v1/b3l5g4rc56v28'; // غيرها
-
-// ===================== CHECKOUT (SheetDB Version) =====================
-async function placeOrder() {
-    const name = document.getElementById('coName').value.trim();
-    const phone = document.getElementById('coPhone').value.trim();
-    const gov = document.getElementById('coGov').value.trim();
-    const address = document.getElementById('coAddress').value.trim();
-    const notes = document.getElementById('coNotes').value.trim();
-
-    if(!name || !phone || !gov || !address){
-        showToast('Please fill in all required fields');
-        return;
-    }
-
-    const itemsTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const govKey = gov.toLowerCase();
-    const deliveryFee = deliveryFees[govKey] || deliveryFees.default;
-    const total = itemsTotal + deliveryFee;
-
-    // Format items as string
-    const itemsText = cart.map(item => 
-        `${item.title} (x${item.qty}) @ EGP${item.price}`
-    ).join(' | ');
-
-    const orderId = 'STU-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + 
-                    Math.floor(1000 + Math.random() * 9000);
-
-    const orderData = {
-        data: {
-            id: orderId,
-            date: new Date().toLocaleString('en-GB'),
-            customer: name,
-            phone: phone,
-            governorate: gov,
-            address: address,
-            notes: notes || '',
-            items: itemsText,
-            items_total: itemsTotal,
-            delivery: deliveryFee,
-            total: total,
-            status: 'Pending'
-        }
-    };
-
-    // Loading
-    const btn = document.querySelector('.place-order-btn');
-    btn.textContent = 'Sending...';
-    btn.disabled = true;
-
-    try {
-        const response = await fetch(SHEETDB_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(orderData)
-        });
-
-        const result = await response.json();
-        console.log('SheetDB response:', result);
-
-        if(result.created === 1 || response.ok) {
-            // Save locally too
-            const localOrder = {
-                id: orderId,
-                date: new Date().toISOString(),
-                status: 'pending',
-                customer: {name, phone, governorate: gov, address, notes},
-                items: cart.map(item => ({...item})),
-                itemsTotal, deliveryFee, total
-            };
-
-            orders.unshift(localOrder);
-            localStorage.setItem('studio_orders', JSON.stringify(orders));
-
-            // Clear
-            cart = [];
-            saveCart();
-            updateCartUI();
-            closeCheckout();
-            
-            ['coName','coPhone','coGov','coAddress','coNotes'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-
-            document.getElementById('successModal').classList.add('active');
-            renderOrders();
-            showToast('Order placed! #' + orderId);
-            
-        } else {
-            throw new Error('SheetDB error');
-        }
-
-    } catch(error) {
-        console.error('Error:', error);
-        showToast('Network error - saved locally');
-        saveOrderLocally({name, phone, governorate: gov, address, notes}, itemsTotal, deliveryFee, total);
-        
-    } finally {
-        btn.textContent = 'Place Order';
-        btn.disabled = false;
-    }
-}
 });
 </script>
 
